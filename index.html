@@ -352,7 +352,7 @@
       piping: { group: null, orig: new THREE.Vector3(0, 0, 0), offset: new THREE.Vector3(0, 0.2, 0) }
     };
 
-    const geminiApiKey = "";
+    const geminiApiKey = localStorage.getItem('gemini_api_key') || "";
     let lastAiResponseText = "";
     let isSpeaking = false;
     let currentAudio = null;
@@ -384,11 +384,15 @@ Keep answers under 3 punchy paragraphs with clear technical figures and state va
       let delay = 1000;
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
-          const reqHeaders = { 'Content-Type': 'application/json' };
-          if (geminiApiKey) {
-            reqHeaders['x-goog-api-key'] = geminiApiKey;
-          }
-          const res = await fetch(apiUrl, {
+          cconst activeKey = localStorage.getItem('gemini_api_key') || geminiApiKey;
+const finalUrl = activeKey ? `${apiUrl}?key=${activeKey}` : apiUrl;
+
+const reqHeaders = { 'Content-Type': 'application/json' };
+if (activeKey) {
+  reqHeaders['x-goog-api-key'] = activeKey;
+}
+
+const res = await fetch(finalUrl, {
             method: 'POST',
             headers: reqHeaders,
             body: JSON.stringify(payload)

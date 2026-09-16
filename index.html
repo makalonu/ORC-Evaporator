@@ -393,18 +393,14 @@ if (activeKey) {
 }
 
 const res = await fetch(finalUrl, {
-  method: 'POST',
-  headers: reqHeaders,
-  body: JSON.stringify(payload)
-});
-            method: 'POST',
-            headers: reqHeaders,
-            body: JSON.stringify(payload)
-          });
-          if (res.ok) {
-            const data = await res.json();
-            return data?.candidates?.[0]?.content?.parts?.[0]?.text || "No diagnostic output received from system.";
-          }
+      method: 'POST',
+      headers: reqHeaders,
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data?.candidates?.[0]?.content?.parts?.[0]?.text || "No diagnostic output received.";
+    }
         } catch (err) {
           // Retry silently with exponential backoff
         }

@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Centralized ORC Skid - Two-Tier Mezzanine 3D Twin</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Three.js OrbitControls -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- OBJExporter for native 3D export -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/OBJExporter.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              DEFAULT: '#16682f',
+              dark: '#0f4820',
+              light: '#229b46',
+              hologram: '#00f2ff'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+    .custom-glass {
+      background: rgba(10, 15, 29, 0.85);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .hud-glow {
+      text-shadow: 0 0 10px rgba(0, 242, 255, 0.7), 0 0 20px rgba(22, 104, 47, 0.5);
+    }
+    .scanline-overlay {
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      background-size: 100% 3px, 6px 100%;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased overflow-hidden">
+
+  <div id="canvas-container"></div>
+  <div id="hologram-scanline" class="fixed inset-0 z-10 scanline-overlay opacity-0 transition-opacity duration-500 pointer-events-none"></div>
+
+  <!-- Top Navigation & Tony Stark HUD Controls -->
+  <header class="absolute top-0 left-0 right-0 z-20 p-4 md:p-6 flex flex-wrap items-center justify-between pointer-events-none gap-3">
+    <div class="pointer-events-auto flex items-center space-x-3 custom-glass px-4 py-2.5 rounded-2xl shadow-2xl border border-emerald-500/20">
+      <div id="logo-badge" class="w-10 h-10 rounded-xl bg-brand flex items-center justify-center shadow-lg shadow-brand/40 text-white font-bold text-lg transition-all duration-500">
+        <i class="fa-solid fa-atom"></i>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 id="hud-title" class="font-bold text-base md:text-lg tracking-tight text-white">Dual-Deck ORC Mezzanine Skid</h1>
+          <span id="badge-tech" class="text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">Industrial CAD</span>
+        </div>
+        <p class="text-xs text-slate-400">Shell-and-Tube Heat Exchangers & Radial Turbo-Expander</p>
+      </div>
+    </div>
+
+    <!-- Quick Action Controls -->
+    <div class="pointer-events-auto flex items-center flex-wrap gap-2">
+      <!-- J.A.R.V.I.S. AI Copilot Toggle -->
+      <button id="btn-ai-copilot" class="custom-glass hover:bg-emerald-950/70 text-xs md:text-sm font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-2 border border-emerald-500/50 text-emerald-300 shadow-lg shadow-emerald-500/20">
+        <i class="fa-solid fa-brain text-emerald-400 animate-pulse"></i>
+        <span>J.A.R.V.I.S. AI</span>
+      </button>
+
+      <!-- Tony Stark Hologram Mode Toggle -->
+      <button id="btn-jarvis" class="custom-glass hover:bg-cyan-950/60 text-xs md:text-sm font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-2 border border-cyan-500/40 text-cyan-300 shadow-lg shadow-cyan-500/10">
+        <i class="fa-solid fa-microchip text-cyan-400 animate-pulse"></i>
+        <span id="jarvis-label">Hologram HUD</span>
+      </button>
+
+      <!-- Exploded View -->
+      <button id="btn-explode" class="custom-glass hover:bg-slate-800 text-xs md:text-sm font-medium px-3.5 py-2 rounded-xl transition flex items-center gap-2 border border-white/10 hover:border-emerald-500/50">
+        <i class="fa-solid fa-arrows-split-up-and-left text-emerald-400"></i>
+        <span>Disassemble</span>
+      </button>
+
+      <!-- Flow Toggle -->
+      <button id="btn-flow" class="custom-glass hover:bg-slate-800 text-xs md:text-sm font-medium px-3.5 py-2 rounded-xl transition flex items-center gap-2 border border-white/10 hover:border-emerald-500/50">
+        <i class="fa-solid fa-wave-square text-amber-400"></i>
+        <span id="flow-label">Hide Flow</span>
+      </button>
+
+      <!-- Native Mac Export (.OBJ) -->
+      <button id="btn-export-obj" class="bg-gradient-to-r from-emerald-700 to-brand hover:from-emerald-600 hover:to-brand-light text-white text-xs md:text-sm font-semibold px-3.5 py-2 rounded-xl shadow-lg shadow-brand/30 transition flex items-center gap-2">
+        <i class="fa-brands fa-apple text-white"></i>
+        <span>Mac 3D Export</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Left Component Inspector Card -->
+  <aside id="inspector-card" class="absolute bottom-6 left-6 z-20 w-80 md:w-96 custom-glass rounded-2xl p-5 shadow-2xl transition-all duration-300 border border-white/15">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-700/60 mb-3">
+      <div class="flex items-center gap-2.5">
+        <span id="comp-icon" class="w-8 h-8 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-sm">
+          <i class="fa-solid fa-layer-group"></i>
+        </span>
+        <div>
+          <h3 id="comp-name" class="font-bold text-white text-sm md:text-base">Shell & Tube Evaporator</h3>
+          <span class="text-[10px] text-slate-400 font-mono">ASME Sec VIII Div 1</span>
+        </div>
+      </div>
+      <span id="comp-status" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-brand/30 text-emerald-300 border border-brand/50">Upper Deck</span>
+    </div>
+    
+    <p id="comp-desc" class="text-xs text-slate-300 mb-4 leading-relaxed">
+      Horizontal multi-pass shell-and-tube evaporator mounted with saddle supports. Flanged inlet receives 75°C liquid loop to vaporize working refrigerant across the internal tube bundle.
+    </p>
+
+    <!-- Metrics Grid -->
+    <div class="grid grid-cols-2 gap-2 mb-4">
+      <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+        <span class="text-[10px] text-slate-400 block mb-0.5">Operating Temp / ΔT</span>
+        <span id="comp-metric-1" class="text-xs font-semibold text-emerald-300">75°C In / 65°C Out</span>
+      </div>
+      <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+        <span class="text-[10px] text-slate-400 block mb-0.5">Vessel Spec / Pressure</span>
+        <span id="comp-metric-2" class="text-xs font-semibold text-cyan-300">6.8 bar (Test 12 bar)</span>
+      </div>
+    </div>
+
+    <!-- Quick Component Selectors -->
+    <div class="space-y-1.5 pt-1">
+      <span class="text-[11px] font-semibold text-slate-400 block">Sub-Assemblies (Matching Photo):</span>
+      <div class="grid grid-cols-2 gap-1.5">
+        <button onclick="selectComponentByName('evaporator')" class="text-left text-xs bg-slate-800/80 hover:bg-slate-700/80 p-2 rounded-lg border border-slate-700 transition flex items-center justify-between">
+          <span>Evaporator</span>
+          <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
+        </button>
+        <button onclick="selectComponentByName('preheater')" class="text-left text-xs bg-slate-800/80 hover:bg-slate-700/80 p-2 rounded-lg border border-slate-700 transition flex items-center justify-between">
+          <span>Pre-Heater</span>
+          <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
+        </button>
+        <button onclick="selectComponentByName('filling_tank')" class="text-left text-xs bg-slate-800/80 hover:bg-slate-700/80 p-2 rounded-lg border border-slate-700 transition flex items-center justify-between">
+          <span>Filling Tank</span>
+          <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
+        </button>
+        <button onclick="selectComponentByName('process_tank')" class="text-left text-xs bg-slate-800/80 hover:bg-slate-700/80 p-2 rounded-lg border border-slate-700 transition flex items-center justify-between">
+          <span>Process Tank</span>
+          <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
+        </button>
+        <button onclick="selectComponentByName('turbine')" class="text-left text-xs bg-slate-800/80 hover:bg-slate-700/80 p-2 rounded-lg border border-slate-700 transition flex items-center justify-between">
+          <span>ORC Turbine</span>
+          <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
+        </button>
+        <button onclick="selectComponentByName('feed_pump')" class="text-left text-xs bg-slate-800/80 hover:bg-slate-700/80 p-2 rounded-lg border border-slate-700 transition flex items-center justify-between">
+          <span>Feed Pump</span>
+          <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Live Telemetry Bar -->
+  <div class="hidden md:flex absolute bottom-6 right-6 z-20 custom-glass rounded-2xl p-4 shadow-2xl border border-white/10 items-center gap-6">
+    <div class="flex items-center gap-3">
+      <div id="pulse-dot" class="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></div>
+      <div>
+        <span class="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">Net Power Generation</span>
+        <div class="text-lg font-black text-white flex items-baseline gap-1">
+          <span>250.0</span>
+          <span class="text-xs text-emerald-400 font-normal">kWe @ 480V</span>
+        </div>
+      </div>
+    </div>
+    <div class="h-8 w-px bg-slate-700/80"></div>
+    <div>
+      <span class="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">Hot Deck Temperature</span>
+      <div class="text-lg font-black text-white flex items-baseline gap-1">
+        <span>78.4°C</span>
+        <span class="text-xs text-amber-400 font-normal">Superheated Vapor</span>
+      </div>
+    </div>
+    <div class="h-8 w-px bg-slate-700/80"></div>
+    <div>
+      <span class="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">Working Fluid</span>
+      <div class="text-sm font-bold text-cyan-300">R1233zd(E) Low-GWP</div>
+    </div>
+  </div>
+
+  <!-- J.A.R.V.I.S. AI Copilot Terminal Window -->
+  <div id="jarvis-ai-panel" class="fixed top-24 right-4 md:right-6 z-30 w-84 md:w-[420px] max-h-[80vh] custom-glass rounded-2xl p-4 md:p-5 shadow-2xl border border-cyan-500/30 flex flex-col transition-all duration-300 transform scale-100 opacity-100">
+    <div class="flex items-center justify-between pb-3 border-b border-cyan-500/20 mb-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-cyan-950/80 border border-cyan-400/50 flex items-center justify-center text-cyan-300 shadow-md shadow-cyan-500/20">
+          <i class="fa-solid fa-atom text-cyan-400 text-sm"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-white text-sm flex items-center gap-1.5">
+            <span>J.A.R.V.I.S. Copilot</span>
+            <span class="text-[9px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded font-mono">Gemini 3 Flash</span>
+          </h3>
+          <p class="text-[10px] text-cyan-300/70 font-mono">Thermodynamic & MEP Diagnostic Engine</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1">
+        <button id="btn-audio-speech" title="Vocalize response" class="w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-cyan-900/60 text-slate-300 hover:text-cyan-300 border border-slate-700 transition flex items-center justify-center text-xs">
+          <i id="audio-icon" class="fa-solid fa-volume-high"></i>
+        </button>
+        <button id="btn-close-ai" class="w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-red-900/60 text-slate-300 hover:text-red-400 border border-slate-700 transition flex items-center justify-center text-xs">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- AI Dialogue Feed -->
+    <div id="ai-chat-feed" class="overflow-y-auto max-h-[38vh] space-y-3 pr-1 text-xs mb-3 font-mono">
+      <div class="bg-cyan-950/30 border border-cyan-500/20 rounded-xl p-3 text-cyan-100 leading-relaxed">
+        <p class="font-semibold text-cyan-300 mb-1 flex items-center gap-1.5 font-sans">
+          <i class="fa-solid fa-circle-check text-emerald-400 text-[10px]"></i>
+          <span>Systems Nominal, Sir.</span>
+        </p>
+        <p class="text-[11px] text-slate-300 font-sans">
+          I am monitoring the 250 kWe ORC digital twin. Ask me to simulate server thermal surges, check isentropic turbine efficiency, or calculate data center white-space financial yields.
+        </p>
+      </div>
+    </div>
+
+    <!-- Quick Scenario Chips -->
+    <div class="mb-3">
+      <span class="text-[10px] font-semibold text-slate-400 block mb-1.5 font-sans">Quick Diagnostic Scenarios:</span>
+      <div class="flex flex-wrap gap-1.5">
+        <button onclick="sendQuickPrompt('Simulate a 85°C server liquid loop surge. What are the thermodynamic state changes in the evaporator and turbine?')" class="text-[10px] bg-slate-900/80 hover:bg-cyan-950/60 text-cyan-200 px-2 py-1 rounded-lg border border-cyan-500/30 transition">
+          ⚡ 85°C Surge
+        </button>
+        <button onclick="sendQuickPrompt('Evaluate cavitation risk and seal integrity on the feed pump under 70°C inlet conditions.')" class="text-[10px] bg-slate-900/80 hover:bg-cyan-950/60 text-cyan-200 px-2 py-1 rounded-lg border border-cyan-500/30 transition">
+          🛡️ Pump Cavitation
+        </button>
+        <button onclick="sendQuickPrompt('Calculate the financial payback and annual kWe yield for a 35,000 sq ft AI data center.')" class="text-[10px] bg-slate-900/80 hover:bg-cyan-950/60 text-cyan-200 px-2 py-1 rounded-lg border border-cyan-500/30 transition">
+          💰 35k sq ft ROI
+        </button>
+        <button onclick="sendQuickPrompt('Explain why R1233zd(E) was chosen over R245fa for this ASME skid.')" class="text-[10px] bg-slate-900/80 hover:bg-cyan-950/60 text-cyan-200 px-2 py-1 rounded-lg border border-cyan-500/30 transition">
+          🧪 Fluid Choice
+        </button>
+      </div>
+    </div>
+
+    <!-- Prompt Input Form -->
+    <form id="ai-prompt-form" class="relative flex items-center">
+      <input id="ai-user-input" type="text" placeholder="Ask J.A.R.V.I.S. (e.g. Inspect turbine expander)..." class="w-full bg-slate-900/90 border border-slate-700 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 rounded-xl px-3 py-2 pr-10 text-xs text-white placeholder-slate-500 focus:outline-none transition">
+      <button type="submit" id="btn-submit-ai" class="absolute right-1.5 w-7 h-7 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-lg flex items-center justify-center transition shadow-md shadow-cyan-500/30">
+        <i class="fa-solid fa-arrow-up text-xs font-bold"></i>
+      </button>
+    </form>
+  </div>
+
+  <script>
+    const componentDatabase = {
+      evaporator: {
+        name: "Shell-and-Tube Evaporator",
+        icon: "fa-solid fa-fire-burner",
+        desc: "Horizontal cylindrical ASME shell containing 120 internal seamless titanium-alloy tubes and transverse segmental baffles. It absorbs liquid cooling loop heat to flash refrigerant to vapor.",
+        m1: "78°C / 6.8 bar",
+        m2: "Internal Bundle: 120 Tubes",
+        focusPos: new THREE.Vector3(0.5, 2.7, 0.4)
+      },
+      preheater: {
+        name: "Pre-Heater Heat Exchanger",
+        icon: "fa-solid fa-temperature-arrow-up",
+        desc: "Secondary shell-and-tube heat exchanger mounted parallel on the top mezzanine deck. Raises liquid refrigerant temperature to saturated liquid line prior to evaporator entrance.",
+        m1: "54°C → 68°C Sensible Heat",
+        m2: "Multi-Pass Tubesheet",
+        focusPos: new THREE.Vector3(0.5, 2.7, -0.4)
+      },
+      process_tank: {
+        name: "Process Buffer Tank",
+        icon: "fa-solid fa-boxes-stacked",
+        desc: "Horizontal buffer storage tank with dished hemispherical heads located on the upper platform. Buffers thermal swings and stabilizes mass flow during server compute throttling.",
+        m1: "Capacity: 450 Liters",
+        m2: "Design Press: 10 bar",
+        focusPos: new THREE.Vector3(0.5, 3.2, -1.0)
+      },
+      filling_tank: {
+        name: "Elevated Refrigerant Filling Tank",
+        icon: "fa-solid fa-flask-vial",
+        desc: "Vertical cylindrical vessel supported on a raised 4-post leg frame. Provides static head pressure, fluid replenishment, vacuum evacuation, and emergency thermal expansion relief.",
+        m1: "Net Head: +1.8m Gravity Feed",
+        m2: "Level Sensor & PRV Port",
+        focusPos: new THREE.Vector3(-1.8, 3.5, -1.0)
+      },
+      turbine: {
+        name: "Radial ORC Turbo-Expander",
+        icon: "fa-solid fa-fan",
+        desc: "Conical volute turbine housing with high-speed radial rotor directly driving a hermetic permanent magnet synchronous generator on magnetic bearings at 28,500 RPM.",
+        m1: "28,500 RPM / 250 kWe",
+        m2: "Expands 6.8 bar → 1.4 bar",
+        focusPos: new THREE.Vector3(0.2, 0.9, 0.3)
+      },
+      feed_pump: {
+        name: "Multi-Stage Feed Pump",
+        icon: "fa-solid fa-arrows-rotate",
+        desc: "Hermetically sealed centrifugal feed pump mounted on the lower base. Boosts condensed liquid back to the upper deck pre-heater and evaporator without dynamic seal leakage.",
+        m1: "Mass Flow: 14.8 kg/s",
+        m2: "Head: 5.4 bar Boost",
+        focusPos: new THREE.Vector3(-1.1, 0.8, 0.5)
+      },
+      frame: {
+        name: "Two-Tier Mezzanine Skid Structure",
+        icon: "fa-solid fa-building-columns",
+        desc: "Heavy welded A36 structural steel mezzanine featuring perimeter safety handrails, non-slip steel bar grating on the upper deck, and seismic tie-downs on the lower skid base.",
+        m1: "Rated Payload: 8,500 kg",
+        m2: "Perimeter Safety Handrails",
+        focusPos: new THREE.Vector3(0, 1.8, 0)
+      }
+    };
+
+    let scene, camera, renderer, controls;
+    let skidGroup;
+    let exploded = false;
+    let flowActive = true;
+    let jarvisMode = false;
+    let particleSystems = [];
+    let selectableMeshes = [];
+    let allMaterials = [];
+
+    // Sub-assemblies for exploded view animation (matching the photo)
+    const subAssemblies = {
+      mezzanine: { group: null, orig: new THREE.Vector3(0, 0, 0), offset: new THREE.Vector3(0, -0.4, 0) },
+      evaporator: { group: null, orig: new THREE.Vector3(0.4, 2.5, 0.4), offset: new THREE.Vector3(0.6, 0.5, 0.8) },
+      preheater: { group: null, orig: new THREE.Vector3(0.4, 2.5, -0.35), offset: new THREE.Vector3(0.6, 0.5, -0.6) },
+      process_tank: { group: null, orig: new THREE.Vector3(0.4, 3.1, -1.0), offset: new THREE.Vector3(0.8, 0.8, -1.0) },
+      filling_tank: { group: null, orig: new THREE.Vector3(-1.7, 3.3, -1.0), offset: new THREE.Vector3(-0.9, 0.8, -0.8) },
+      turbine: { group: null, orig: new THREE.Vector3(0.2, 0.85, 0.25), offset: new THREE.Vector3(0.6, -0.2, 0.8) },
+      feed_pump: { group: null, orig: new THREE.Vector3(-1.1, 0.8, 0.45), offset: new THREE.Vector3(-0.8, -0.2, 0.8) },
+      condenser: { group: null, orig: new THREE.Vector3(0.6, 0.8, -0.8), offset: new THREE.Vector3(0.8, -0.2, -0.8) },
+      piping: { group: null, orig: new THREE.Vector3(0, 0, 0), offset: new THREE.Vector3(0, 0.2, 0) }
+    };
+
+    const geminiApiKey = "";
+    let lastAiResponseText = "";
+    let isSpeaking = false;
+    let currentAudio = null;
+
+    async function callGeminiApi(userQuery) {
+      const systemPrompt = `You are J.A.R.V.I.S., the advanced AI diagnostic intelligence and chief thermodynamic engineer for this Centralized Data Center Organic Rankine Cycle (ORC) digital twin.
+You analyze thermodynamics, fluid phase changes (R1233zd(E)), radial turbo-expander performance, heat exchangers, feed pumps, and data center financial metrics ($/sq ft, CapEx yield, payback).
+Respond in an authoritative, intelligent, and concise manner with subtle Tony Stark engineering flair.
+CRITICAL 3D INTEGRATION: Whenever you reference a specific skid sub-assembly, mention its key in square brackets so the 3D viewport automatically flies to inspect it:
+- [evaporator]
+- [preheater]
+- [turbine]
+- [feed_pump]
+- [process_tank]
+- [filling_tank]
+- [frame]
+Keep answers under 3 punchy paragraphs with clear technical figures and state variables.`;
+
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${geminiApiKey}`;
+
+      const payload = {
+        contents: [{ parts: [{ text: userQuery }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] }
+      };
+
+      // Exponential backoff retry handler
+      const maxRetries = 3;
+      let delay = 1000;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const res = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (res.ok) {
+            const data = await res.json();
+            return data?.candidates?.[0]?.content?.parts?.[0]?.text || "No diagnostic output received from system.";
+          }
+        } catch (err) {
+          // Retry silently with exponential backoff
+        }
+        await new Promise(r => setTimeout(r, delay));
+        delay *= 2;
+      }
+      return "Communication link with secondary telemetry server timed out. Check bus diagnostics.";
+    }
+
+    // Convert raw PCM 16-bit to WAV Blob for Gemini TTS playback
+    function pcmToWav(pcm16, sampleRate) {
+      const buffer = new ArrayBuffer(44 + pcm16.length * 2);
+      const view = new DataView(buffer);
+      function writeString(offset, str) {
+        for (let i = 0; i < str.length; i++) {
+          view.setUint8(offset + i, str.charCodeAt(i));
+        }
+      }
+      writeString(0, 'RIFF');
+      view.setUint32(4, 36 + pcm16.length * 2, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); // PCM format
+      view.setUint16(22, 1, true); // Mono
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true); // Byte rate
+      view.setUint16(32, 2, true); // Block align
+      view.setUint16(34, 16, true); // 16-bit
+      writeString(36, 'data');
+      view.setUint32(40, pcm16.length * 2, true);
+      for (let i = 0; i < pcm16.length; i++) {
+        view.setInt16(44 + i * 2, pcm16[i], true);
+      }
+      return new Blob([view], { type: 'audio/wav' });
+    }
+
+    function base64ToArrayBuffer(base64) {
+      const binary = window.atob(base64);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+
+    async function vocalizeWithGeminiTTS(textToSpeak) {
+      if (isSpeaking && currentAudio) {
+        currentAudio.pause();
+        isSpeaking = false;
+        document.getElementById('audio-icon').className = 'fa-solid fa-volume-high';
+        return;
+      }
+
+      const cleanText = textToSpeak.replace(/\[\w+\]/g, '').replace(/[#*_`]/g, '').slice(0, 300);
+      const prompt = `Say in an authoritative, calm, highly intelligent British AI voice like JARVIS: ${cleanText}`;
+      const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${geminiApiKey}`;
+
+      const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: "Zephyr" }
+            }
+          }
+        }
+      };
+
+      try {
+        const audioIcon = document.getElementById('audio-icon');
+        audioIcon.className = 'fa-solid fa-circle-notch fa-spin text-cyan-400';
+
+        const res = await fetch(ttsUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+        const part = result?.candidates?.[0]?.content?.parts?.[0];
+        const audioData = part?.inlineData?.data;
+        const mimeType = part?.inlineData?.mimeType;
+
+        if (audioData && mimeType && mimeType.startsWith("audio/")) {
+          const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+          const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1], 10) : 24000;
+          const pcmBuffer = base64ToArrayBuffer(audioData);
+          const pcm16 = new Int16Array(pcmBuffer);
+          const wavBlob = pcmToWav(pcm16, sampleRate);
+          const audioUrl = URL.createObjectURL(wavBlob);
+
+          currentAudio = new Audio(audioUrl);
+          isSpeaking = true;
+          audioIcon.className = 'fa-solid fa-waveform text-emerald-400 animate-pulse';
+
+          currentAudio.onended = () => {
+            isSpeaking = false;
+            audioIcon.className = 'fa-solid fa-volume-high';
+          };
+          currentAudio.play();
+        } else {
+          audioIcon.className = 'fa-solid fa-volume-high';
+        }
+      } catch (err) {
+        document.getElementById('audio-icon').className = 'fa-solid fa-volume-high';
+      }
+    }
+
+    async function handleUserPrompt(query) {
+      if (!query || !query.trim()) return;
+
+      const feed = document.getElementById('ai-chat-feed');
+      const userBubble = document.createElement('div');
+      userBubble.className = 'bg-slate-800/90 border border-slate-700 rounded-xl p-2.5 text-right text-slate-200 font-sans ml-6';
+      userBubble.innerText = query;
+      feed.appendChild(userBubble);
+
+      const loadingBubble = document.createElement('div');
+      loadingBubble.className = 'bg-cyan-950/40 border border-cyan-500/30 rounded-xl p-3 text-cyan-300 font-sans flex items-center gap-2 mr-6';
+      loadingBubble.innerHTML = `<i class="fa-solid fa-atom fa-spin text-cyan-400 text-sm"></i> <span>Processing thermodynamic telemetry...</span>`;
+      feed.appendChild(loadingBubble);
+      feed.scrollTop = feed.scrollHeight;
+
+      const responseText = await callGeminiApi(query);
+      lastAiResponseText = responseText;
+      loadingBubble.remove();
+
+      // Check for component bracket tokens to auto-pivot 3D view
+      const componentMatches = responseText.match(/\[(evaporator|preheater|turbine|feed_pump|process_tank|filling_tank|frame)\]/g);
+      if (componentMatches && componentMatches.length > 0) {
+        const targetComp = componentMatches[0].replace(/\[|\]/g, '');
+        selectComponentByName(targetComp);
+      }
+
+      // Format markdown bold & linebreaks
+      const formattedHtml = responseText
+        .replace(/\n\n/g, '<br><br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
+        .replace(/\[(\w+)\]/g, '<span class="bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded text-[10px] font-mono border border-cyan-500/30 cursor-pointer hover:bg-cyan-500/40" onclick="selectComponentByName(\'$1\')">🔍 $1</span>');
+
+      const jarvisBubble = document.createElement('div');
+      jarvisBubble.className = 'bg-cyan-950/30 border border-cyan-500/20 rounded-xl p-3 text-cyan-100 font-sans mr-4 leading-relaxed';
+      jarvisBubble.innerHTML = `
+        <div class="flex items-center justify-between mb-1.5 pb-1 border-b border-cyan-500/10">
+          <span class="text-[10px] font-mono font-bold text-cyan-400 tracking-wide uppercase">J.A.R.V.I.S. Output</span>
+          <button onclick="vocalizeWithGeminiTTS(lastAiResponseText)" class="text-[10px] text-cyan-300/80 hover:text-cyan-200 flex items-center gap-1 font-mono">
+            <i class="fa-solid fa-volume-high"></i> Speak
+          </button>
+        </div>
+        <div class="text-xs text-slate-200 leading-relaxed">${formattedHtml}</div>
+      `;
+      feed.appendChild(jarvisBubble);
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    function sendQuickPrompt(promptText) {
+      document.getElementById('ai-user-input').value = promptText;
+      handleUserPrompt(promptText);
+    }
+
+    document.getElementById('ai-prompt-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('ai-user-input');
+      const query = input.value;
+      input.value = '';
+      handleUserPrompt(query);
+    });
+
+    document.getElementById('btn-ai-copilot').addEventListener('click', () => {
+      const panel = document.getElementById('jarvis-ai-panel');
+      panel.classList.toggle('hidden');
+    });
+
+    document.getElementById('btn-close-ai').addEventListener('click', () => {
+      document.getElementById('jarvis-ai-panel').classList.add('hidden');
+    });
+
+    document.getElementById('btn-audio-speech').addEventListener('click', () => {
+      if (lastAiResponseText) {
+        vocalizeWithGeminiTTS(lastAiResponseText);
+      }
+    });
+
+    function initThree() {
+      const container = document.getElementById('canvas-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0f1d);
+      scene.fog = new THREE.FogExp2(0x0a0f1d, 0.035);
+
+      camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+      camera.position.set(5.8, 4.8, 6.2);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2 - 0.02;
+      controls.minDistance = 2.0;
+      controls.maxDistance = 20;
+      controls.target.set(0, 1.8, 0);
+
+      // Lights
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+      scene.add(ambientLight);
+
+      const mainLight = new THREE.DirectionalLight(0xffffff, 1.3);
+      mainLight.position.set(8, 12, 8);
+      mainLight.castShadow = true;
+      mainLight.shadow.mapSize.width = 2048;
+      mainLight.shadow.mapSize.height = 2048;
+      mainLight.shadow.bias = -0.0005;
+      scene.add(mainLight);
+
+      const cyanFill = new THREE.DirectionalLight(0x00f2ff, 0.8);
+      cyanFill.position.set(-8, 6, -6);
+      scene.add(cyanFill);
+
+      const brandAccent = new THREE.DirectionalLight(0x16682f, 1.6);
+      brandAccent.position.set(4, 3, -5);
+      scene.add(brandAccent);
+
+      buildGround();
+      buildSkidStructure();
+
+      window.addEventListener('resize', onWindowResize, false);
+      renderer.domElement.addEventListener('pointerdown', onPointerDown, false);
+    }
+
+    function buildGround() {
+      const grid = new THREE.GridHelper(26, 26, 0x1e293b, 0x0f172a);
+      grid.position.y = 0;
+      scene.add(grid);
+
+      // Industrial foundation slab
+      const slabGeo = new THREE.BoxGeometry(6.2, 0.15, 4.4);
+      const slabMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6, metalness: 0.3 });
+      registerMaterial(slabMat);
+      const slab = new THREE.Mesh(slabGeo, slabMat);
+      slab.position.y = -0.08;
+      slab.receiveShadow = true;
+      scene.add(slab);
+
+      // Perimeter glowing guide rail
+      const ringGeo = new THREE.RingGeometry(4.8, 4.95, 64);
+      ringGeo.rotateX(-Math.PI / 2);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x16682f, side: THREE.DoubleSide });
+      registerMaterial(ringMat);
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.position.y = 0.01;
+      scene.add(ring);
+    }
+
+    function registerMaterial(mat) {
+      allMaterials.push({
+        mat: mat,
+        origColor: mat.color ? mat.color.clone() : null,
+        origWireframe: !!mat.wireframe,
+        origMetalness: mat.metalness !== undefined ? mat.metalness : 0.5,
+        origRoughness: mat.roughness !== undefined ? mat.roughness : 0.5,
+        origOpacity: mat.opacity !== undefined ? mat.opacity : 1.0,
+        origTransparent: !!mat.transparent
+      });
+    }
+
+    function buildSkidStructure() {
+      skidGroup = new THREE.Group();
+      scene.add(skidGroup);
+
+      // Shared Industrial Materials
+      const steelBlueMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.8, roughness: 0.3 }); // Primary blue frame like photo
+      const darkSteelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.9, roughness: 0.35 });
+      const chromeExchangerMat = new THREE.MeshStandardMaterial({ color: 0xcfd8dc, metalness: 0.85, roughness: 0.25 });
+      const processTankMat = new THREE.MeshStandardMaterial({ color: 0x90a4ae, metalness: 0.8, roughness: 0.3 });
+      const yellowPipeMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.75, roughness: 0.25 }); // Distinct yellow pipes from photo
+      const turbineConeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.95, roughness: 0.15 });
+      const turbineCollarMat = new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.6, roughness: 0.4 }); // Red collar
+      const brandGreenMat = new THREE.MeshStandardMaterial({ color: 0x16682f, metalness: 0.7, roughness: 0.3 });
+
+      [steelBlueMat, darkSteelMat, chromeExchangerMat, processTankMat, yellowPipeMat, turbineConeMat, turbineCollarMat, brandGreenMat].forEach(registerMaterial);
+
+      // ==========================================
+      // 1. MEZZANINE STRUCTURAL PLATFORM
+      // ==========================================
+      const mezzGroup = new THREE.Group();
+      subAssemblies.mezzanine.group = mezzGroup;
+
+      // Base footprint: 4.8m long x 2.8m wide x 2.2m upper deck height
+      const W = 4.8, D = 2.8, H = 2.2;
+
+      // 4 Main Vertical Upright Columns
+      const colGeo = new THREE.BoxGeometry(0.14, H, 0.14);
+      for (let x of [-W/2 + 0.1, W/2 - 0.1]) {
+        for (let z of [-D/2 + 0.1, D/2 - 0.1]) {
+          const col = new THREE.Mesh(colGeo, steelBlueMat);
+          col.position.set(x, H/2, z);
+          col.castShadow = true;
+          mezzGroup.add(col);
+        }
+      }
+
+      // Upper Deck Grating Platform (Walkway with cutout)
+      const deckGeo = new THREE.BoxGeometry(W, 0.12, D);
+      const deck = new THREE.Mesh(deckGeo, darkSteelMat);
+      deck.position.set(0, H, 0);
+      deck.castShadow = true;
+      deck.receiveShadow = true;
+      deck.userData = { componentKey: 'frame' };
+      mezzGroup.add(deck);
+      selectableMeshes.push(deck);
+
+      // Perimeter Safety Handrails (Top Deck)
+      const railH = 0.65;
+      // Top rails
+      for (let z of [-D/2, D/2]) {
+        const railGeo = new THREE.CylinderGeometry(0.025, 0.025, W, 16);
+        railGeo.rotateZ(Math.PI / 2);
+        const r1 = new THREE.Mesh(railGeo, steelBlueMat);
+        r1.position.set(0, H + railH, z);
+        mezzGroup.add(r1);
+
+        const r2 = r1.clone();
+        r2.position.y = H + railH * 0.5;
+        mezzGroup.add(r2);
+      }
+      for (let x of [-W/2, W/2]) {
+        const railGeo = new THREE.CylinderGeometry(0.025, 0.025, D, 16);
+        railGeo.rotateX(Math.PI / 2);
+        const r1 = new THREE.Mesh(railGeo, steelBlueMat);
+        r1.position.set(x, H + railH, 0);
+        mezzGroup.add(r1);
+
+        const r2 = r1.clone();
+        r2.position.y = H + railH * 0.5;
+        mezzGroup.add(r2);
+      }
+
+      // Vertical Stanchions for Handrail
+      for (let x of [-W/2, -W/4, 0, W/4, W/2]) {
+        for (let z of [-D/2, D/2]) {
+          const stanchion = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, railH, 12), steelBlueMat);
+          stanchion.position.set(x, H + railH/2, z);
+          mezzGroup.add(stanchion);
+        }
+      }
+
+      skidGroup.add(mezzGroup);
+
+      // =======================================================
+      // 2. SHELL-AND-TUBE HEAT EXCHANGER BUILDER (Diagram B)
+      // =======================================================
+      function createShellAndTubeExchanger(label, key, bodyColor) {
+        const exGroup = new THREE.Group();
+
+        // Main cylindrical shell (Horizontal)
+        const shellGeo = new THREE.CylinderGeometry(0.32, 0.32, 2.6, 32);
+        shellGeo.rotateZ(Math.PI / 2);
+        const shell = new THREE.Mesh(shellGeo, bodyColor);
+        shell.castShadow = true;
+        shell.userData = { componentKey: key };
+        exGroup.add(shell);
+        selectableMeshes.push(shell);
+
+        // Hemispherical Front & Rear Heads with Bolted Flanges
+        for (let side of [-1.32, 1.32]) {
+          // Bolted Flange Ring
+          const flangeGeo = new THREE.CylinderGeometry(0.40, 0.40, 0.08, 32);
+          flangeGeo.rotateZ(Math.PI / 2);
+          const flange = new THREE.Mesh(flangeGeo, darkSteelMat);
+          flange.position.x = side;
+          exGroup.add(flange);
+
+          // Dished End Cap
+          const capGeo = new THREE.SphereGeometry(0.32, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+          capGeo.rotateZ(side < 0 ? Math.PI / 2 : -Math.PI / 2);
+          const cap = new THREE.Mesh(capGeo, bodyColor);
+          cap.position.x = side + (side < 0 ? -0.04 : 0.04);
+          exGroup.add(cap);
+        }
+
+        // Top and Bottom Flanged Nozzles
+        const nozzleGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.25, 16);
+        const nTop = new THREE.Mesh(nozzleGeo, yellowPipeMat);
+        nTop.position.set(-0.7, 0.38, 0);
+        exGroup.add(nTop);
+
+        const nTopFlange = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.04, 16), darkSteelMat);
+        nTopFlange.position.set(-0.7, 0.50, 0);
+        exGroup.add(nTopFlange);
+
+        // Saddle Support Legs (Mounting to deck)
+        for (let sx of [-0.6, 0.6]) {
+          const saddleGeo = new THREE.BoxGeometry(0.12, 0.28, 0.54);
+          const saddle = new THREE.Mesh(saddleGeo, darkSteelMat);
+          saddle.position.set(sx, -0.36, 0);
+          exGroup.add(saddle);
+        }
+
+        return exGroup;
+      }
+
+      // Evaporator (Front Exchanger on Upper Deck)
+      const evapGroup = createShellAndTubeExchanger("Evaporator", "evaporator", chromeExchangerMat);
+      subAssemblies.evaporator.group = evapGroup;
+      evapGroup.position.copy(subAssemblies.evaporator.orig);
+      skidGroup.add(evapGroup);
+
+      // Pre-Heater (Rear Exchanger on Upper Deck)
+      const preheaterGroup = createShellAndTubeExchanger("Pre-Heater", "preheater", chromeExchangerMat);
+      subAssemblies.preheater.group = preheaterGroup;
+      preheaterGroup.position.copy(subAssemblies.preheater.orig);
+      skidGroup.add(preheaterGroup);
+
+      // Process Tank (Horizontal tank behind pre-heater)
+      const processGroup = new THREE.Group();
+      subAssemblies.process_tank.group = processGroup;
+      processGroup.position.copy(subAssemblies.process_tank.orig);
+
+      const pTankGeo = new THREE.CylinderGeometry(0.24, 0.24, 2.0, 24);
+      pTankGeo.rotateZ(Math.PI / 2);
+      const pTank = new THREE.Mesh(pTankGeo, processTankMat);
+      pTank.castShadow = true;
+      pTank.userData = { componentKey: 'process_tank' };
+      processGroup.add(pTank);
+      selectableMeshes.push(pTank);
+
+      for (let side of [-1.02, 1.02]) {
+        const pCapGeo = new THREE.SphereGeometry(0.24, 16, 16);
+        const pCap = new THREE.Mesh(pCapGeo, processTankMat);
+        pCap.position.x = side;
+        processGroup.add(pCap);
+      }
+      skidGroup.add(processGroup);
+
+      // ==========================================
+      // 3. ELEVATED VERTICAL FILLING TANK
+      // ==========================================
+      const fillGroup = new THREE.Group();
+      subAssemblies.filling_tank.group = fillGroup;
+      fillGroup.position.copy(subAssemblies.filling_tank.orig);
+
+      // Vertical Tank Body
+      const fBodyGeo = new THREE.CylinderGeometry(0.38, 0.38, 1.4, 32);
+      const fBody = new THREE.Mesh(fBodyGeo, chromeExchangerMat);
+      fBody.castShadow = true;
+      fBody.userData = { componentKey: 'filling_tank' };
+      fillGroup.add(fBody);
+      selectableMeshes.push(fBody);
+
+      // Dished Top and Bottom
+      const topDome = new THREE.Mesh(new THREE.SphereGeometry(0.38, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), chromeExchangerMat);
+      topDome.position.y = 0.7;
+      fillGroup.add(topDome);
+
+      const btmDome = topDome.clone();
+      btmDome.rotateX(Math.PI);
+      btmDome.position.y = -0.7;
+      fillGroup.add(btmDome);
+
+      // Top Flanged Port
+      const topPort = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.22, 16), yellowPipeMat);
+      topPort.position.y = 1.1;
+      fillGroup.add(topPort);
+
+      // 4 Leg Supports down to upper deck floor
+      for (let lx of [-0.28, 0.28]) {
+        for (let lz of [-0.28, 0.28]) {
+          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.65, 0.06), darkSteelMat);
+          leg.position.set(lx, -0.95, lz);
+          fillGroup.add(leg);
+        }
+      }
+      skidGroup.add(fillGroup);
+
+      // ==========================================
+      // 4. LOWER DECK: ORC TURBINE & GENERATOR
+      // ==========================================
+      const turbGroup = new THREE.Group();
+      subAssemblies.turbine.group = turbGroup;
+      turbGroup.position.copy(subAssemblies.turbine.orig);
+
+      // Conical Radial-Inflow Expander Volute (Matching photo labeled "ORC TURBINE")
+      const coneGeo = new THREE.CylinderGeometry(0.22, 0.44, 0.9, 32);
+      coneGeo.rotateZ(Math.PI / 2);
+      const cone = new THREE.Mesh(coneGeo, turbineConeMat);
+      cone.castShadow = true;
+      cone.userData = { componentKey: 'turbine' };
+      turbGroup.add(cone);
+      selectableMeshes.push(cone);
+
+      // Red High-Pressure Inlet Collar
+      const collarGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.2, 24);
+      collarGeo.rotateZ(Math.PI / 2);
+      const collar = new THREE.Mesh(collarGeo, turbineCollarMat);
+      collar.position.x = -0.52;
+      collar.userData = { componentKey: 'turbine' };
+      turbGroup.add(collar);
+      selectableMeshes.push(collar);
+
+      // Generator Housing (Right side)
+      const genGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.8, 24);
+      genGeo.rotateZ(Math.PI / 2);
+      const gen = new THREE.Mesh(genGeo, brandGreenMat);
+      gen.position.x = 0.75;
+      gen.userData = { componentKey: 'turbine' };
+      turbGroup.add(gen);
+      selectableMeshes.push(gen);
+
+      // Heavy mounting base plate
+      const turbBase = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.12, 0.7), darkSteelMat);
+      turbBase.position.set(0.15, -0.42, 0);
+      turbGroup.add(turbBase);
+
+      skidGroup.add(turbGroup);
+
+      // ==========================================
+      // 5. LOWER DECK: FEED PUMP
+      // ==========================================
+      const pumpGroup = new THREE.Group();
+      subAssemblies.feed_pump.group = pumpGroup;
+      pumpGroup.position.copy(subAssemblies.feed_pump.orig);
+
+      // Pump Electric Motor
+      const pMotorGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.6, 24);
+      pMotorGeo.rotateZ(Math.PI / 2);
+      const pMotor = new THREE.Mesh(pMotorGeo, brandGreenMat);
+      pMotor.position.x = 0.35;
+      pMotor.castShadow = true;
+      pMotor.userData = { componentKey: 'feed_pump' };
+      pumpGroup.add(pMotor);
+      selectableMeshes.push(pMotor);
+
+      // Centrifugal Volute & Impeller Casing
+      const pVoluteGeo = new THREE.CylinderGeometry(0.28, 0.24, 0.3, 24);
+      pVoluteGeo.rotateZ(Math.PI / 2);
+      const pVolute = new THREE.Mesh(pVoluteGeo, darkSteelMat);
+      pVolute.position.x = -0.15;
+      pVolute.userData = { componentKey: 'feed_pump' };
+      pumpGroup.add(pVolute);
+      selectableMeshes.push(pVolute);
+
+      // Vertical Discharge Neck
+      const pNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.35, 16), yellowPipeMat);
+      pNeck.position.set(-0.15, 0.25, 0);
+      pumpGroup.add(pNeck);
+
+      skidGroup.add(pumpGroup);
+
+      // ==========================================
+      // 6. LOWER DECK: CONDENSER VESSEL
+      // ==========================================
+      const condGroup = new THREE.Group();
+      subAssemblies.condenser.group = condGroup;
+      condGroup.position.copy(subAssemblies.condenser.orig);
+
+      const condShell = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 2.2, 32), chromeExchangerMat);
+      condShell.rotation.z = Math.PI / 2;
+      condShell.castShadow = true;
+      condShell.userData = { componentKey: 'evaporator' };
+      condGroup.add(condShell);
+      skidGroup.add(condGroup);
+
+      // ==========================================
+      // 7. INTERCONNECTING PIPING & VALVES
+      // ==========================================
+      buildRealisticPiping(yellowPipeMat, darkSteelMat);
+      initParticleCircuits();
+    }
+
+    function buildRealisticPiping(yellowMat, darkMat) {
+      const pipeGroup = new THREE.Group();
+      subAssemblies.piping.group = pipeGroup;
+
+      // Pipe 1: Top Deck Evaporator Outlet down to Lower Deck Turbine Cone
+      const path1 = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-0.3, 2.9, 0.4),
+        new THREE.Vector3(-0.3, 2.9, 0.7),
+        new THREE.Vector3(-0.6, 2.0, 0.7),
+        new THREE.Vector3(-0.6, 0.9, 0.5),
+        new THREE.Vector3(-0.3, 0.9, 0.25)
+      ]);
+      const pipeMesh1 = new THREE.Mesh(new THREE.TubeGeometry(path1, 40, 0.08, 16, false), yellowMat);
+      pipeGroup.add(pipeMesh1);
+
+      // Pipe 2: Upper Deck Manifold between Preheater and Evaporator
+      const path2 = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(1.1, 2.8, -0.35),
+        new THREE.Vector3(1.5, 2.8, -0.35),
+        new THREE.Vector3(1.5, 2.8, 0.4),
+        new THREE.Vector3(1.1, 2.8, 0.4)
+      ]);
+      const pipeMesh2 = new THREE.Mesh(new THREE.TubeGeometry(path2, 32, 0.07, 16, false), yellowMat);
+      pipeGroup.add(pipeMesh2);
+
+      // Pipe 3: Turbine Exhaust into Condenser
+      const path3 = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(1.1, 0.85, 0.25),
+        new THREE.Vector3(1.5, 0.85, 0.25),
+        new THREE.Vector3(1.5, 0.85, -0.8),
+        new THREE.Vector3(1.2, 0.85, -0.8)
+      ]);
+      const pipeMesh3 = new THREE.Mesh(new THREE.TubeGeometry(path3, 32, 0.1, 16, false), darkMat);
+      pipeGroup.add(pipeMesh3);
+
+      // Pipe 4: Condenser to Feed Pump
+      const path4 = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-0.5, 0.8, -0.8),
+        new THREE.Vector3(-1.1, 0.8, -0.8),
+        new THREE.Vector3(-1.1, 0.8, 0.1)
+      ]);
+      const pipeMesh4 = new THREE.Mesh(new THREE.TubeGeometry(path4, 32, 0.07, 16, false), darkMat);
+      pipeGroup.add(pipeMesh4);
+
+      skidGroup.add(pipeGroup);
+    }
+
+    function initParticleCircuits() {
+      const loopSpline = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.4, 2.5, -0.35), // Preheater sensible warming
+        new THREE.Vector3(1.3, 2.8, 0.0),   // Transfer
+        new THREE.Vector3(0.4, 2.5, 0.4),   // Evaporator boiling
+        new THREE.Vector3(-0.3, 2.9, 0.5),  // High-pressure vapor rising
+        new THREE.Vector3(-0.6, 1.5, 0.6),  // Drop to lower level
+        new THREE.Vector3(-0.1, 0.85, 0.25),// Expanding through turbine rotor
+        new THREE.Vector3(1.3, 0.85, -0.3), // Vapor exhaust
+        new THREE.Vector3(0.6, 0.8, -0.8),  // Condenser condensing to liquid
+        new THREE.Vector3(-1.1, 0.8, 0.2),  // Feed pump pressurization
+        new THREE.Vector3(-1.1, 2.2, -0.35) // Pumping back up to top deck
+      ], true);
+
+      const count = 140;
+      const geo = new THREE.BufferGeometry();
+      const pos = new Float32Array(count * 3);
+      const cols = new Float32Array(count * 3);
+      const progress = new Float32Array(count);
+
+      for (let i = 0; i < count; i++) {
+        progress[i] = i / count;
+        const pt = loopSpline.getPoint(progress[i]);
+        pos[i * 3] = pt.x;
+        pos[i * 3 + 1] = pt.y;
+        pos[i * 3 + 2] = pt.z;
+
+        // Amber for high-pressure superheated vapor; Cyan for condensed liquid
+        if (progress[i] < 0.55) {
+          cols[i * 3] = 0.98; cols[i * 3 + 1] = 0.65; cols[i * 3 + 2] = 0.05;
+        } else {
+          cols[i * 3] = 0.0;  cols[i * 3 + 1] = 0.85; cols[i * 3 + 2] = 1.0;
+        }
+      }
+
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+
+      const mat = new THREE.PointsMaterial({
+        size: 0.14,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending
+      });
+
+      const ps = new THREE.Points(geo, mat);
+      ps.userData = { spline: loopSpline, progress: progress };
+      scene.add(ps);
+      particleSystems.push(ps);
+    }
+
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+
+    function onPointerDown(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(pointer, camera);
+      const intersects = raycaster.intersectObjects(selectableMeshes, true);
+
+      if (intersects.length > 0) {
+        let obj = intersects[0].object;
+        while (obj && !obj.userData.componentKey && obj.parent) {
+          obj = obj.parent;
+        }
+        if (obj && obj.userData.componentKey) {
+          selectComponentByName(obj.userData.componentKey);
+        }
+      }
+    }
+
+    function selectComponentByName(key) {
+      const data = componentDatabase[key];
+      if (!data) return;
+
+      document.getElementById('comp-name').innerText = data.name;
+      document.getElementById('comp-desc').innerText = data.desc;
+      document.getElementById('comp-metric-1').innerText = data.m1;
+      document.getElementById('comp-metric-2').innerText = data.m2;
+      document.getElementById('comp-icon').innerHTML = `<i class="${data.icon}"></i>`;
+
+      if (controls && data.focusPos) {
+        const target = data.focusPos.clone();
+        const startTarget = controls.target.clone();
+        const duration = 35;
+        let frame = 0;
+
+        function stepCam() {
+          frame++;
+          const t = frame / duration;
+          controls.target.lerpVectors(startTarget, target, t);
+          if (frame < duration) requestAnimationFrame(stepCam);
+        }
+        stepCam();
+      }
+    }
+
+    function toggleJarvisHologram() {
+      jarvisMode = !jarvisMode;
+      const btn = document.getElementById('btn-jarvis');
+      const scanline = document.getElementById('hologram-scanline');
+      const hudTitle = document.getElementById('hud-title');
+      const logoBadge = document.getElementById('logo-badge');
+      const label = document.getElementById('jarvis-label');
+
+      if (jarvisMode) {
+        btn.classList.add('bg-cyan-500', 'text-slate-950', 'border-cyan-300', 'shadow-cyan-400/50');
+        btn.classList.remove('custom-glass', 'text-cyan-300');
+        scanline.classList.remove('opacity-0');
+        scanline.classList.add('opacity-40');
+        hudTitle.classList.add('text-cyan-400', 'hud-glow');
+        logoBadge.classList.remove('bg-brand');
+        logoBadge.classList.add('bg-cyan-500', 'text-slate-950', 'shadow-cyan-400/80');
+        label.innerText = "Exit JARVIS";
+
+        scene.background = new THREE.Color(0x020712);
+        scene.fog.color = new THREE.Color(0x020712);
+
+        // Transform all materials into wireframe neon cyan/emerald hologram
+        allMaterials.forEach(item => {
+          item.mat.wireframe = true;
+          if (item.mat.color) {
+            item.mat.color.setHex(0x00f2ff);
+          }
+          item.mat.transparent = true;
+          item.mat.opacity = 0.65;
+        });
+      } else {
+        btn.classList.remove('bg-cyan-500', 'text-slate-950', 'border-cyan-300', 'shadow-cyan-400/50');
+        btn.classList.add('custom-glass', 'text-cyan-300');
+        scanline.classList.add('opacity-0');
+        scanline.classList.remove('opacity-40');
+        hudTitle.classList.remove('text-cyan-400', 'hud-glow');
+        logoBadge.classList.add('bg-brand');
+        logoBadge.classList.remove('bg-cyan-500', 'text-slate-950', 'shadow-cyan-400/80');
+        label.innerText = "Hologram HUD";
+
+        scene.background = new THREE.Color(0x0a0f1d);
+        scene.fog.color = new THREE.Color(0x0a0f1d);
+
+        // Restore realistic PBR materials
+        allMaterials.forEach(item => {
+          item.mat.wireframe = item.origWireframe;
+          if (item.mat.color && item.origColor) {
+            item.mat.color.copy(item.origColor);
+          }
+          item.mat.transparent = item.origTransparent;
+          item.mat.opacity = item.origOpacity;
+        });
+      }
+    }
+
+    function toggleExplodedView() {
+      exploded = !exploded;
+      const btn = document.getElementById('btn-explode');
+      if (exploded) {
+        btn.classList.add('bg-brand', 'text-white', 'border-emerald-400');
+        btn.classList.remove('custom-glass');
+      } else {
+        btn.classList.remove('bg-brand', 'text-white', 'border-emerald-400');
+        btn.classList.add('custom-glass');
+      }
+    }
+
+    function updateExplosionAnimation(delta) {
+      const speed = 3.5;
+      for (let key in subAssemblies) {
+        const item = subAssemblies[key];
+        if (!item.group) continue;
+        const targetPos = exploded ? item.orig.clone().add(item.offset) : item.orig.clone();
+        item.group.position.lerp(targetPos, speed * delta);
+      }
+    }
+
+    function toggleFluidFlow() {
+      flowActive = !flowActive;
+      particleSystems.forEach(ps => ps.visible = flowActive);
+      document.getElementById('flow-label').innerText = flowActive ? "Hide Flow" : "Show Flow";
+    }
+
+    function exportNativeMacFile() {
+      if (!THREE.OBJExporter) {
+        console.error("OBJ Exporter not loaded");
+        return;
+      }
+      const exporter = new THREE.OBJExporter();
+      const result = exporter.parse(skidGroup);
+      const blob = new Blob([result], { type: 'text/plain' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'ORC_Mezzanine_Skid_Model.obj';
+      link.click();
+    }
+
+    document.getElementById('btn-jarvis').addEventListener('click', toggleJarvisHologram);
+    document.getElementById('btn-explode').addEventListener('click', toggleExplodedView);
+    document.getElementById('btn-flow').addEventListener('click', toggleFluidFlow);
+    document.getElementById('btn-export-obj').addEventListener('click', exportNativeMacFile);
+
+    function onWindowResize() {
+      const container = document.getElementById('canvas-container');
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+
+      controls.update();
+      updateExplosionAnimation(delta);
+
+      if (flowActive && particleSystems.length > 0) {
+        particleSystems.forEach(ps => {
+          const spline = ps.userData.spline;
+          const prog = ps.userData.progress;
+          const posAttr = ps.geometry.attributes.position;
+          const count = prog.length;
+
+          for (let i = 0; i < count; i++) {
+            prog[i] += 0.25 * delta;
+            if (prog[i] > 1.0) prog[i] -= 1.0;
+
+            const pt = spline.getPoint(prog[i]);
+            posAttr.setXYZ(i, pt.x, pt.y, pt.z);
+          }
+          posAttr.needsUpdate = true;
+        });
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    window.onload = function() {
+      initThree();
+      animate();
+    };
+  </script>
+</body>
+</html>

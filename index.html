@@ -372,43 +372,34 @@ CRITICAL 3D INTEGRATION: Whenever you reference a specific skid sub-assembly, me
 Keep answers under 3 punchy paragraphs with clear technical figures and state variables.`;
 
       // Supports both URL query parameter and HTTP header authorization
-      const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent";
+      const apiUrl = "https://orc-evaporator-model.akalonumaria4.workers.dev/";
       const payload = {
         contents: [{ parts: [{ text: userQuery }] }],
         systemInstruction: { parts: [{ text: systemPrompt }] }
       };
 
       // Exponential backoff retry handler
-      const maxRetries = 3;
-      let delay = 1000;
-      for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-const activeKey = localStorage.getItem('gemini_api_key') || geminiApiKey;
-const finalUrl = activeKey ? `${apiUrl}?key=${activeKey}` : apiUrl;
-
-const reqHeaders = { 'Content-Type': 'application/json' };
-if (activeKey) {
-  reqHeaders['x-goog-api-key'] = activeKey;
-}
-
-const res = await fetch(finalUrl, {
+const maxRetries = 3;
+let delay = 1000;
+for (let attempt = 0; attempt < maxRetries; attempt++) {
+  try {
+    const res = await fetch(apiUrl, {
       method: 'POST',
-      headers: reqHeaders,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+
     if (res.ok) {
       const data = await res.json();
       return data?.candidates?.[0]?.content?.parts?.[0]?.text || "No diagnostic output received.";
     }
-        } catch (err) {
-          // Retry silently with exponential backoff
-        }
-        await new Promise(r => setTimeout(r, delay));
-        delay *= 2;
-      }
-      return "Communication link with secondary telemetry server timed out. Check bus diagnostics.";
-    }
-
+  } catch (err) {
+    // Retry silently with exponential backoff
+  }
+  await new Promise(r => setTimeout(r, delay));
+  delay *= 2;
+}
+return "Communication link with secondary telemetry server timed out. Check bus diagnostics.";
     // Convert raw PCM 16-bit to WAV Blob for Gemini TTS playback
     function pcmToWav(pcm16, sampleRate) {
       const buffer = new ArrayBuffer(44 + pcm16.length * 2);

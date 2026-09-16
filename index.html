@@ -371,7 +371,8 @@ CRITICAL 3D INTEGRATION: Whenever you reference a specific skid sub-assembly, me
 - [frame]
 Keep answers under 3 punchy paragraphs with clear technical figures and state variables.`;
 
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${geminiApiKey}`;
+      // Supports both URL query parameter and HTTP header authorization
+      const apiUrl = geminiApiKey ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${encodeURIComponent(geminiApiKey)}` : `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent`;
 
       const payload = {
         contents: [{ parts: [{ text: userQuery }] }],
@@ -383,9 +384,13 @@ Keep answers under 3 punchy paragraphs with clear technical figures and state va
       let delay = 1000;
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
+          const reqHeaders = { 'Content-Type': 'application/json' };
+          if (geminiApiKey) {
+            reqHeaders['x-goog-api-key'] = geminiApiKey;
+          }
           const res = await fetch(apiUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: reqHeaders,
             body: JSON.stringify(payload)
           });
           if (res.ok) {
@@ -449,7 +454,7 @@ Keep answers under 3 punchy paragraphs with clear technical figures and state va
 
       const cleanText = textToSpeak.replace(/\[\w+\]/g, '').replace(/[#*_`]/g, '').slice(0, 300);
       const prompt = `Say in an authoritative, calm, highly intelligent British AI voice like JARVIS: ${cleanText}`;
-      const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${geminiApiKey}`;
+      const ttsUrl = geminiApiKey ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${encodeURIComponent(geminiApiKey)}` : `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent`;
 
       const payload = {
         contents: [{ parts: [{ text: prompt }] }],
@@ -467,9 +472,14 @@ Keep answers under 3 punchy paragraphs with clear technical figures and state va
         const audioIcon = document.getElementById('audio-icon');
         audioIcon.className = 'fa-solid fa-circle-notch fa-spin text-cyan-400';
 
+        const reqHeaders = { 'Content-Type': 'application/json' };
+        if (geminiApiKey) {
+          reqHeaders['x-goog-api-key'] = geminiApiKey;
+        }
+
         const res = await fetch(ttsUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: reqHeaders,
           body: JSON.stringify(payload)
         });
 

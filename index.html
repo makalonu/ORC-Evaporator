@@ -378,7 +378,7 @@ Keep answers under 3 punchy paragraphs with clear technical figures and state va
         systemInstruction: { parts: [{ text: systemPrompt }] }
       };
 
-      // Exponential backoff retry handler
+     // Exponential backoff retry handler
 const maxRetries = 3;
 let delay = 1000;
 for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -400,7 +400,7 @@ for (let attempt = 0; attempt < maxRetries; attempt++) {
   delay *= 2;
 }
 return "Communication link with secondary telemetry server timed out. Check bus diagnostics.";
-    // Convert raw PCM 16-bit to WAV Blob for Gemini TTS playback
+}    // Convert raw PCM 16-bit to WAV Blob for Gemini TTS playback
     function pcmToWav(pcm16, sampleRate) {
       const buffer = new ArrayBuffer(44 + pcm16.length * 2);
       const view = new DataView(buffer);
